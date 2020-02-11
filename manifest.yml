@@ -1,0 +1,6 @@
+---
+applications:
+- name: node-mc-api
+  host: MultiChainApi
+  path: mcapi
+  memory: 128M
