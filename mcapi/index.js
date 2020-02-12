@@ -15,6 +15,7 @@ app.use(morgan('tiny'));
 //use - routes
 app.use('/', require('./routes/home'));
 app.use('/streams', require('./routes/streams'));
+// app.use('/api/partners', require('./routes/partners'));
 
 const port = process.env.PORT || 3000;
 app.listen(port, function () {

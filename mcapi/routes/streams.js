@@ -1,6 +1,8 @@
 const router = require('express').Router();
 const axios = require('axios').default;
 const wrap = require("../middleware/wrap");
+const schemas = require("../schemas");
+const Joi = require('joi');
 
 const sURL = process.env.MULTICHAIN_API_URL;
 
@@ -17,50 +19,62 @@ const mockDB = {
     ]
 }
 
-
 /* create/write to stream */
 router.post('/', wrap(async (req, res, next) => {
 
-    const { ebeln, mode, header, items } = req.body;
-    const streamName = "PO_" + ebeln;
+    const { mode, header, lineitems } = req.body;
 
     switch (mode) {
-        case 'CREATEPO':
-            // Check DB if stream exists -> get streamId
-            var matchedStream = mockDB.streams.find(o => o.streamName === streamName);
+        case 'POCREATE':
+            // First validate req.body
+            const { error } = Joi.validate(req.body, schemas.POCREATEbody, { abortEarly: false });
+            const valid = error == null; 
 
-            // If no values in DB, create Stream
-            if (matchedStream) {
-                throw new Error('StreamName exists')
+            if (!valid) {
+                const { details } = error;
+                const message = details.map(i => i.message).join(',');
+
+                console.log("validation error", message);
+                res.status(422).json({ error: message })
             } else {
-                // Create Stream
-                var response1 = await axios({
-                    method: 'post',
-                    url: sURL,
-                    data: {
-                        method: "create",
-                        params: ["stream", streamName, {}]
-                    },
-                    headers: headers
-                });
-                console.log(response1.data);
+                // Check DB if stream exists -> get streamId
+                var streamName = "PO_" + header.ebeln;
+                var matchedStream = mockDB.streams.find(o => o.streamName === streamName);
 
-                // Publish to Stream
-                var response2 = await axios({
-                    method: 'post',
-                    url: sURL,
-                    data: {
-                        method: "publish",
-                        params: [streamName, "POCREATED", {
-                            json: { header: header, items: items }
-                        }]
-                    },
-                    headers: headers
-                });
-                console.log(response2.data);
+                // If no values in DB, create Stream
+                if (matchedStream) {
+                    throw new Error('StreamName exists')
+                } else {
+                    // Create Stream
+                    var response1 = await axios({
+                        method: 'post',
+                        url: sURL,
+                        data: {
+                            method: "create",
+                            params: ["stream", streamName, {}]
+                        },
+                        headers: headers
+                    });
+                    console.log(response1.data);
 
-                res.send(response2.data);
+                    // Publish to Stream
+                    var response2 = await axios({
+                        method: 'post',
+                        url: sURL,
+                        data: {
+                            method: "publish",
+                            params: [streamName, "POCREATED", {
+                                json: { metadata: "", header: header, lineitems: lineitems }
+                            }]
+                        },
+                        headers: headers
+                    });
+                    console.log(response2.data);
+
+                    res.send(response2.data);
+                }
             }
+
             break;
         case 'ORDERCONFIRM':
             // Check DB if stream exists -> get streamId
@@ -75,7 +89,7 @@ router.post('/', wrap(async (req, res, next) => {
                     data: {
                         method: "publish",
                         params: [matchedStream.streamName, "ORDERCONFIRM", {
-                            json: { header: header, items: items }
+                            json: { header: header, lineitems: lineitems }
                         }]
                     },
                     headers: headers
