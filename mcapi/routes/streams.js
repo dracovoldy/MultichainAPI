@@ -2,6 +2,7 @@ const router = require('express').Router();
 const axios = require('axios').default;
 const wrap = require("../middleware/wrap");
 const schemas = require("../schemas");
+const mockDB = require("../mockdb");
 const Joi = require('joi');
 
 const sURL = process.env.MULTICHAIN_API_URL;
@@ -11,34 +12,26 @@ const headers = {
     'apikey': process.env.MULTICHAIN_API_KEY
 }
 
-const mockDB = {
-    streams: [
-        { streamName: "root", ebeln: "TEST", steamref: "0-0-0" },
-        { streamName: "PO_700000011", ebeln: "700000011", steamref: "173-267-57259" },
-        { streamName: "PO_70000001", ebeln: "70000001", steamref: "115-265-48018" }
-    ]
-}
-
 /* create/write to stream */
 router.post('/', wrap(async (req, res, next) => {
 
-    const { mode, header, lineitems } = req.body;
+    const { metadata, data } = req.body;
 
-    switch (mode) {
+    switch (metadata.action) {
         case 'POCREATE':
             // First validate req.body
-            const { error } = Joi.validate(req.body, schemas.POCREATEbody, { abortEarly: false });
-            const valid = error == null; 
+            var { error } = Joi.validate(req.body, schemas.PoCreate, { abortEarly: false });
+            var valid = error == null;
 
             if (!valid) {
-                const { details } = error;
-                const message = details.map(i => i.message).join(',');
+                var { details } = error;
+                var message = details.map(i => i.message).join(',');
 
                 console.log("validation error", message);
                 res.status(422).json({ error: message })
             } else {
                 // Check DB if stream exists -> get streamId
-                var streamName = "PO_" + header.ebeln;
+                var streamName = "PO_" + data.header.poNumber;
                 var matchedStream = mockDB.streams.find(o => o.streamName === streamName);
 
                 // If no values in DB, create Stream
@@ -63,8 +56,18 @@ router.post('/', wrap(async (req, res, next) => {
                         url: sURL,
                         data: {
                             method: "publish",
-                            params: [streamName, "POCREATED", {
-                                json: { metadata: "", header: header, lineitems: lineitems }
+                            params: [streamName, "POCREATE", {
+                                json: {
+                                    metadata: {
+                                        action: 'POCREATE',
+                                        createdOn: new Date()
+                                    },
+                                    data:{
+                                        header: data.header,
+                                        lineitems: data.lineitems
+                                    }
+                                    
+                                }
                             }]
                         },
                         headers: headers
@@ -77,40 +80,112 @@ router.post('/', wrap(async (req, res, next) => {
 
             break;
         case 'ORDERCONFIRM':
-            // Check DB if stream exists -> get streamId
-            var matchedStream = mockDB.streams.find(o => o.streamName === streamName);
+            // First validate req.body
+            var { error } = Joi.validate(req.body, schemas.OrderConfirm, { abortEarly: false });
+            var valid = error == null;
 
-            // If Stream found, publish to stream
-            if (matchedStream) {
-                // Publish to Stream
-                var response = await axios({
-                    method: 'post',
-                    url: sURL,
-                    data: {
-                        method: "publish",
-                        params: [matchedStream.streamName, "ORDERCONFIRM", {
-                            json: { header: header, lineitems: lineitems }
-                        }]
-                    },
-                    headers: headers
-                });
-                console.log(response.data);
+            if (!valid) {
+                var { details } = error;
+                var message = details.map(i => i.message).join(',');
 
-                res.send(response.data);
+                console.log("validation error", message);
+                res.status(422).json({ error: message })
             } else {
-                throw new Error('Stream not found')
+                // Check DB if stream exists -> get streamId
+                var streamName = "PO_" + data.header.poNumber;
+                var matchedStream = mockDB.streams.find(o => o.streamName === streamName);
+
+                // If no values in DB, create Stream
+                if (matchedStream) {                    
+
+                    // Publish to Stream
+                    var response = await axios({
+                        method: 'post',
+                        url: sURL,
+                        data: {
+                            method: "publish",
+                            params: [streamName, "ORDERCONFIRM", {
+                                json: {
+                                    metadata: {
+                                        action: 'ORDERCONFIRM',
+                                        createdOn: new Date()
+                                    },
+                                    data:{
+                                        header: data.header,
+                                        lineitems: data.lineitems
+                                    }
+                                }
+                            }]
+                        },
+                        headers: headers
+                    });
+                    console.log(response.data);
+
+                    res.send(response.data);
+                } else {
+                    throw new Error('StreamName does not exist');
+                }
             }
             break;
         case 'ASN':
+            // First validate req.body
+            var { error } = Joi.validate(req.body, schemas.AdvanceShippingNotification, { abortEarly: false });
+            var valid = error == null;
+
+            if (!valid) {
+                var { details } = error;
+                var message = details.map(i => i.message).join(',');
+
+                console.log("validation error", message);
+                res.status(422).json({ error: message })
+            } else {
+                // Check DB if stream exists -> get streamId
+                var streamName = "PO_" + data.header.poNumber;
+                var matchedStream = mockDB.streams.find(o => o.streamName === streamName);
+
+                // If no values in DB, create Stream
+                if (matchedStream) {                    
+
+                    // Publish to Stream
+                    var response = await axios({
+                        method: 'post',
+                        url: sURL,
+                        data: {
+                            method: "publish",
+                            params: [streamName, "ASN", {
+                                json: {
+                                    metadata: {
+                                        action: 'ASN',
+                                        createdOn: new Date(),
+                                        startShipping: metadata.startShipping,
+                                        dateCollectSupplier: metadata.dateCollectSupplier,
+                                        airWaybill: metadata.airWaybill
+                                    },
+                                    data:{
+                                        header: data.header,
+                                        lineitems: data.lineitems
+                                    }
+                                }
+                            }]
+                        },
+                        headers: headers
+                    });
+                    console.log(response.data);
+
+                    res.send(response.data);
+                } else {
+                    throw new Error('StreamName does not exist');
+                }
+            }
             break;
         default:
-
+            res.status(422).json({ error: "invalid action" });
     }
 
 }));
 
 /* GET all POs (streams) */
-router.get('/', wrap(async (req, res) => {
+router.get('/get', wrap(async (req, res) => {
 
     let { search } = req.query;
 
@@ -147,14 +222,14 @@ router.get('/items', (req, res) => {
     let { streamId, itemType } = req.query;
 
     switch (itemType) {
-        case 'POCREATED':
+        case 'POCREATE':
             // TODO: Get PO Creation
             axios({
                 method: 'post',
                 url: sURL,
                 data: {
                     method: "liststreamkeyitems",
-                    params: [streamId, "POCREATED"]
+                    params: [streamId, "POCREATE"]
                 },
                 headers: headers
             })
@@ -194,7 +269,7 @@ router.get('/items', (req, res) => {
                 url: sURL,
                 data: {
                     method: "liststreamkeyitems",
-                    params: [streamId, "ASNSENT"]
+                    params: [streamId, "ASN"]
                 },
                 headers: headers
             })

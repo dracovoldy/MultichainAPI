@@ -1,36 +1,66 @@
 const Joi = require('joi');
 
-
 const schemas = {
     // Define all schemas
-    POCREATEbody: Joi.object().keys({
-        mode: Joi.string().valid('POCREATE').required(),
-        header: Joi.object().keys({
-            ebeln: Joi.string().length(10).required(),
-            lifnr: Joi.string().length(10).required()
+    PoCreate: Joi.object().keys({
+        metadata: Joi.object().keys({
+            action: Joi.string().valid('POCREATE').required()
         }),
-        lineitems: Joi.array().items(
-            Joi.object().keys({
-                ebelp: Joi.string().length(5).required(),
-                menge: Joi.number().precision(3).required(),
-                werks: Joi.string().length(4).required()
-            })
-        )
+        data: Joi.object().keys({
+            header: Joi.object().keys({
+                poNumber: Joi.string().length(10).required(),
+                supplierNumber: Joi.string().length(10).required()
+            }),
+            lineitems: Joi.array().items(
+                Joi.object().keys({
+                    itemNumber: Joi.string().length(5).required(),
+                    quantity: Joi.number().precision(3).required(),
+                    vessel: Joi.string().length(4).required()
+                })
+            )
+        })
     }),
-    ORDERCONFIRMbody: Joi.object().keys({
-        mode: Joi.string().valid('ORDERCONFIRM').required(),
-        header: Joi.object().keys({
-            ebeln: Joi.string().length(10).required(),
-            lifnr: Joi.string().length(10).required()
+    OrderConfirm: Joi.object().keys({
+        metadata: Joi.object().keys({
+            action: Joi.string().valid('ORDERCONFIRM').required()
         }),
-        lineitems: Joi.array().items(
-            Joi.object().keys({
-                ebelp: Joi.string().length(5).required(),
-                menge: Joi.number().precision(3).required(),
-                werks: Joi.string().length(4).required(),
-                eindt: Joi.string().length(8).required()
-            })
-        )
+        data: Joi.object().keys({
+            header: Joi.object().keys({
+                poNumber: Joi.string().length(10).required(),
+                supplierNumber: Joi.string().length(10).required()
+            }),
+            lineitems: Joi.array().items(
+                Joi.object().keys({
+                    itemNumber: Joi.string().length(5).required(),
+                    quantity: Joi.number().precision(3).required(),
+                    vessel: Joi.string().length(4).required(),
+                    deliveryDate: Joi.string().length(8).required()
+                })
+            )
+        })
+    }),
+    AdvanceShippingNotification: Joi.object().keys({
+        metadata: Joi.object().keys({
+            action: Joi.string().valid('ASN').required(),
+            startShipping: Joi.boolean().required(),
+            dateCollectSupplier: Joi.string().length(8).required(),
+            airWaybill: Joi.string().required()
+
+        }),
+        data: Joi.object().keys({
+            header: Joi.object().keys({
+                poNumber: Joi.string().length(10).required(),
+                supplierNumber: Joi.string().length(10).required()
+            }),
+            lineitems: Joi.array().items(
+                Joi.object().keys({
+                    itemNumber: Joi.string().length(5).required(),
+                    quantity: Joi.number().precision(3).required(),
+                    vessel: Joi.string().length(4).required()
+                })
+            )
+        })
     })
+       
 };
 module.exports = schemas;
